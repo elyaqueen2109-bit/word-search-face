@@ -1,0 +1,536 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Word Search – Face Parts (vertical FACE)</title>
+    <style>
+        /* Стили без изменений (яркие, мультяшные) */
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            user-select: none;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        body {
+            font-family: 'Comic Neue', 'Segoe UI', cursive, sans-serif;
+            background: linear-gradient(145deg, #f9d423, #fdaa8b);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            margin: 0;
+            padding: 20px;
+        }
+
+        .game-container {
+            max-width: 700px;
+            width: 100%;
+            background: rgba(255, 255, 255, 0.9);
+            backdrop-filter: blur(4px);
+            border-radius: 70px 70px 50px 50px;
+            padding: 30px 25px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.3), 0 0 0 6px #f39c12 inset;
+            border: 4px solid white;
+            text-align: center;
+        }
+
+        h1 {
+            font-size: 3rem;
+            color: #2c3e50;
+            text-shadow: 4px 4px 0 #f1c40f;
+            margin-bottom: 5px;
+        }
+
+        .sub {
+            font-size: 1.8rem;
+            background: #e67e22;
+            color: white;
+            display: inline-block;
+            padding: 8px 35px;
+            border-radius: 40px;
+            box-shadow: 0 6px 0 #b85e0e;
+            margin-bottom: 25px;
+            border: 2px solid white;
+        }
+
+        .grid {
+            display: inline-grid;
+            grid-template-columns: repeat(10, 50px);
+            gap: 5px;
+            background: #f39c12;
+            padding: 15px;
+            border-radius: 40px;
+            box-shadow: 0 10px 0 #b85e0e, 0 10px 20px rgba(0,0,0,0.2);
+            border: 4px solid white;
+            margin-bottom: 25px;
+            touch-action: none;
+        }
+
+        .cell {
+            width: 50px;
+            height: 50px;
+            background: #fff5d6;
+            border-radius: 15px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 2rem;
+            font-weight: bold;
+            color: #2c3e50;
+            box-shadow: inset 0 -3px 0 #c0a56b, 0 3px 0 #7f5e2e;
+            border: 2px solid white;
+            transition: background 0.1s;
+        }
+
+        .cell.highlight-temp {
+            background: #f1c40f;
+        }
+
+        .cell.found {
+            background: #2ecc71;
+            box-shadow: inset 0 -3px 0 #1e8449, 0 0 0 3px #e67e22;
+        }
+
+        .word-list {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 15px;
+            background: #f6d1a8;
+            padding: 20px;
+            border-radius: 60px;
+            border: 5px solid #ff8c42;
+            margin-bottom: 25px;
+        }
+
+        .word-item {
+            background: #3498db;
+            color: white;
+            font-size: 1.8rem;
+            font-weight: 800;
+            padding: 10px 25px;
+            border-radius: 40px;
+            box-shadow: 0 6px 0 #1f618d, 0 5px 15px rgba(0,0,0,0.3);
+            border: 3px solid white;
+            text-transform: uppercase;
+            transition: 0.1s;
+        }
+
+        .word-item.found {
+            background: #2ecc71;
+            box-shadow: 0 6px 0 #1e8449;
+            text-decoration: line-through 4px white;
+            opacity: 0.8;
+        }
+
+        .button-group {
+            display: flex;
+            gap: 20px;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+
+        .btn {
+            background: #f1c40f;
+            border: none;
+            font-size: 1.8rem;
+            padding: 15px 35px;
+            border-radius: 60px;
+            box-shadow: 0 8px 0 #b38f00, 0 8px 15px rgba(0,0,0,0.3);
+            color: #2c3e50;
+            font-weight: bold;
+            cursor: pointer;
+            border: 3px solid white;
+            transition: 0.05s linear;
+        }
+
+        .btn:active {
+            transform: translateY(5px);
+            box-shadow: 0 3px 0 #b38f00;
+        }
+
+        .btn.reset {
+            background: #95a5a6;
+            box-shadow: 0 8px 0 #5d6d6e;
+        }
+
+        .message {
+            margin-top: 20px;
+            font-size: 1.8rem;
+            background: #2c3e50;
+            color: white;
+            padding: 10px 30px;
+            border-radius: 40px;
+            display: inline-block;
+            border: 4px solid #f1c40f;
+        }
+    </style>
+</head>
+<body>
+    <div class="game-container">
+        <h1>🔍 FIND WORDS</h1>
+        <div class="sub">FACE PARTS</div>
+
+        <div class="grid" id="wordGrid"></div>
+        <div class="word-list" id="wordList"></div>
+
+        <div class="button-group">
+            <button class="btn" id="showAllBtn">🌟 SHOW ALL</button>
+            <button class="btn reset" id="resetBtn">⟲ RESET</button>
+        </div>
+
+        <div class="message" id="message">Drag over letters to find words!</div>
+    </div>
+
+    <script>
+        (function() {
+            // ---------- ФИКСИРОВАННАЯ СЕТКА 10x10 (без '?') ----------
+            // Все слова встречаются только один раз.
+            const gridData = [
+                ['N', 'O', 'S', 'E', 'L', 'E', 'P', 'R', 'T', 'F'],
+                ['A', 'R', 'B', 'C', 'D', 'Y', 'F', 'G', 'A', 'A'],
+                ['M', 'N', 'E', 'Q', 'R', 'E', 'S', 'C', 'T', 'C'],
+                ['O', 'P', 'Q', 'A', 'S', 'S', 'E', 'T', 'E', 'E'],
+                ['U', 'T', 'V', 'W', 'R', 'X', 'Y', 'Z', 'E', 'X'],
+                ['T', 'M', 'O', 'U', 'T', 'H', 'A', 'B', 'T', 'X'],
+                ['H', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'H', 'X'],
+                ['H', 'A', 'I', 'R', 'J', 'K', 'L', 'M', 'N', 'X'],
+                ['O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X'],
+                ['X', 'Y', 'Z', 'A', 'B', 'C', 'D', 'E', 'F', 'X']
+            ];
+
+            // ---------- КООРДИНАТЫ СЛОВ (FACE теперь вертикально) ----------
+            const words = [
+                { name: 'NOSE', positions: [[0,0],[0,1],[0,2],[0,3]] },
+                { name: 'EYES', positions: [[0,5],[1,5],[2,5],[3,5]] },
+                { name: 'EAR', positions: [[2,2],[3,3],[4,4]] },
+                { name: 'MOUTH', positions: [[5,1],[5,2],[5,3],[5,4],[5,5]] },
+                { name: 'TEETH', positions: [[2,8],[3,8],[4,8],[5,8],[6,8]] },
+                { name: 'HAIR', positions: [[7,0],[7,1],[7,2],[7,3]] },
+                { name: 'FACE', positions: [[0,9],[1,9],[2,9],[3,9]] } // вертикально в последнем столбце
+            ];
+
+            let foundWords = [];
+            const gridDiv = document.getElementById('wordGrid');
+            let cells = [];
+
+            // Отрисовка сетки
+            function renderGrid() {
+                gridDiv.innerHTML = '';
+                cells = [];
+                for (let r = 0; r < 10; r++) {
+                    const rowCells = [];
+                    for (let c = 0; c < 10; c++) {
+                        const cell = document.createElement('div');
+                        cell.className = 'cell';
+                        cell.dataset.row = r;
+                        cell.dataset.col = c;
+                        cell.textContent = gridData[r][c];
+                        gridDiv.appendChild(cell);
+                        rowCells.push(cell);
+                    }
+                    cells.push(rowCells);
+                }
+            }
+            renderGrid();
+
+            // Отрисовка списка слов
+            const wordListDiv = document.getElementById('wordList');
+            words.forEach((word) => {
+                const wordItem = document.createElement('div');
+                wordItem.className = 'word-item';
+                wordItem.dataset.word = word.name;
+                wordItem.textContent = word.name;
+                wordListDiv.appendChild(wordItem);
+            });
+
+            function updateWordList() {
+                document.querySelectorAll('.word-item').forEach(item => {
+                    const wordName = item.dataset.word;
+                    if (foundWords.includes(wordName)) {
+                        item.classList.add('found');
+                    } else {
+                        item.classList.remove('found');
+                    }
+                });
+            }
+
+            // Проверка выделенной линии
+            function checkSelection(startRow, startCol, endRow, endCol) {
+                const dRow = endRow - startRow;
+                const dCol = endCol - startCol;
+                const len = Math.max(Math.abs(dRow), Math.abs(dCol)) + 1;
+
+                if (!(dRow === 0 || dCol === 0 || Math.abs(dRow) === Math.abs(dCol))) return null;
+
+                const stepRow = dRow === 0 ? 0 : (dRow > 0 ? 1 : -1);
+                const stepCol = dCol === 0 ? 0 : (dCol > 0 ? 1 : -1);
+
+                const selectedPositions = [];
+                for (let i = 0; i < len; i++) {
+                    const r = startRow + i * stepRow;
+                    const c = startCol + i * stepCol;
+                    if (r < 0 || r >= 10 || c < 0 || c >= 10) return null;
+                    selectedPositions.push([r, c]);
+                }
+
+                for (let word of words) {
+                    if (foundWords.includes(word.name)) continue;
+                    const wordPos = word.positions;
+                    if (wordPos.length !== selectedPositions.length) continue;
+
+                    let matchForward = true;
+                    let matchBackward = true;
+                    for (let i = 0; i < wordPos.length; i++) {
+                        const [r1, c1] = wordPos[i];
+                        const [r2, c2] = selectedPositions[i];
+                        if (r1 !== r2 || c1 !== c2) matchForward = false;
+                    }
+                    for (let i = 0; i < wordPos.length; i++) {
+                        const [r1, c1] = wordPos[i];
+                        const [r2, c2] = selectedPositions[wordPos.length - 1 - i];
+                        if (r1 !== r2 || c1 !== c2) matchBackward = false;
+                    }
+                    if (matchForward || matchBackward) return word.name;
+                }
+                return null;
+            }
+
+            // Звук успеха
+            function playSuccess() {
+                try {
+                    const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                    const osc = audioCtx.createOscillator();
+                    const gain = audioCtx.createGain();
+                    osc.type = 'sine';
+                    osc.frequency.setValueAtTime(800, audioCtx.currentTime);
+                    osc.frequency.exponentialRampToValueAtTime(1200, audioCtx.currentTime + 0.15);
+                    gain.gain.setValueAtTime(0.3, audioCtx.currentTime);
+                    gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.2);
+                    osc.connect(gain);
+                    gain.connect(audioCtx.destination);
+                    osc.start();
+                    osc.stop(audioCtx.currentTime + 0.2);
+                } catch (e) {}
+            }
+
+            // Переменные для выделения
+            let isDragging = false;
+            let startCell = null;
+            let currentHighlight = [];
+
+            function clearTempHighlight() {
+                currentHighlight.forEach(pos => {
+                    const [r, c] = pos;
+                    cells[r][c].classList.remove('highlight-temp');
+                });
+                currentHighlight = [];
+            }
+
+            function getWordAtPos(row, col) {
+                for (let word of words) {
+                    if (foundWords.includes(word.name)) {
+                        for (let [r, c] of word.positions) {
+                            if (r === row && c === col) return word.name;
+                        }
+                    }
+                }
+                return null;
+            }
+
+            function highlightTemp(endRow, endCol) {
+                if (!startCell) return;
+                clearTempHighlight();
+
+                const startRow = startCell.row;
+                const startCol = startCell.col;
+                const dRow = endRow - startRow;
+                const dCol = endCol - startCol;
+                const len = Math.max(Math.abs(dRow), Math.abs(dCol)) + 1;
+                if (!(dRow === 0 || dCol === 0 || Math.abs(dRow) === Math.abs(dCol))) return;
+
+                const stepRow = dRow === 0 ? 0 : (dRow > 0 ? 1 : -1);
+                const stepCol = dCol === 0 ? 0 : (dCol > 0 ? 1 : -1);
+
+                for (let i = 0; i < len; i++) {
+                    const r = startRow + i * stepRow;
+                    const c = startCol + i * stepCol;
+                    if (r < 0 || r >= 10 || c < 0 || c >= 10) {
+                        clearTempHighlight();
+                        return;
+                    }
+                    cells[r][c].classList.add('highlight-temp');
+                    currentHighlight.push([r, c]);
+                }
+            }
+
+            function endSelection(endRow, endCol) {
+                if (!startCell) return;
+                const startRow = startCell.row;
+                const startCol = startCell.col;
+
+                const wordName = checkSelection(startRow, startCol, endRow, endCol);
+                if (wordName && !foundWords.includes(wordName)) {
+                    foundWords.push(wordName);
+                    const word = words.find(w => w.name === wordName);
+                    word.positions.forEach(([r, c]) => {
+                        cells[r][c].classList.remove('highlight-temp');
+                        cells[r][c].classList.add('found');
+                    });
+                    clearTempHighlight();
+                    updateWordList();
+                    playSuccess();
+                    document.getElementById('message').textContent = `Found: ${wordName}!`;
+                } else {
+                    clearTempHighlight();
+                }
+
+                isDragging = false;
+                startCell = null;
+            }
+
+            // Обработчики мыши
+            function onMouseDown(e) {
+                if (e.target.classList.contains('cell')) {
+                    e.preventDefault();
+                    const row = parseInt(e.target.dataset.row);
+                    const col = parseInt(e.target.dataset.col);
+                    if (foundWords.includes(getWordAtPos(row, col))) return;
+
+                    isDragging = true;
+                    startCell = { row, col };
+                    clearTempHighlight();
+                }
+            }
+
+            function onMouseMove(e) {
+                if (!isDragging || !startCell) return;
+                e.preventDefault();
+                if (e.target.classList.contains('cell')) {
+                    const row = parseInt(e.target.dataset.row);
+                    const col = parseInt(e.target.dataset.col);
+                    highlightTemp(row, col);
+                }
+            }
+
+            function onMouseUp(e) {
+                if (isDragging && startCell) {
+                    e.preventDefault();
+                    if (e.target.classList.contains('cell')) {
+                        const row = parseInt(e.target.dataset.row);
+                        const col = parseInt(e.target.dataset.col);
+                        endSelection(row, col);
+                    } else {
+                        clearTempHighlight();
+                        isDragging = false;
+                        startCell = null;
+                    }
+                } else {
+                    clearTempHighlight();
+                    isDragging = false;
+                    startCell = null;
+                }
+            }
+
+            // Обработчики касаний
+            function onTouchStart(e) {
+                e.preventDefault();
+                const touch = e.touches[0];
+                const elem = document.elementFromPoint(touch.clientX, touch.clientY);
+                if (elem && elem.classList.contains('cell')) {
+                    const row = parseInt(elem.dataset.row);
+                    const col = parseInt(elem.dataset.col);
+                    if (foundWords.includes(getWordAtPos(row, col))) return;
+                    isDragging = true;
+                    startCell = { row, col };
+                    clearTempHighlight();
+                }
+            }
+
+            function onTouchMove(e) {
+                e.preventDefault();
+                if (!isDragging || !startCell) return;
+                const touch = e.touches[0];
+                const elem = document.elementFromPoint(touch.clientX, touch.clientY);
+                if (elem && elem.classList.contains('cell')) {
+                    const row = parseInt(elem.dataset.row);
+                    const col = parseInt(elem.dataset.col);
+                    highlightTemp(row, col);
+                }
+            }
+
+            function onTouchEnd(e) {
+                e.preventDefault();
+                if (isDragging && startCell) {
+                    if (e.changedTouches.length > 0) {
+                        const touch = e.changedTouches[0];
+                        const elem = document.elementFromPoint(touch.clientX, touch.clientY);
+                        if (elem && elem.classList.contains('cell')) {
+                            const row = parseInt(elem.dataset.row);
+                            const col = parseInt(elem.dataset.col);
+                            endSelection(row, col);
+                        } else {
+                            clearTempHighlight();
+                        }
+                    } else {
+                        clearTempHighlight();
+                    }
+                } else {
+                    clearTempHighlight();
+                }
+                isDragging = false;
+                startCell = null;
+            }
+
+            // Подсветить все слова
+            function highlightAll() {
+                foundWords = words.map(w => w.name);
+                for (let r = 0; r < 10; r++) {
+                    for (let c = 0; c < 10; c++) {
+                        cells[r][c].classList.remove('highlight-temp', 'found');
+                    }
+                }
+                words.forEach(word => {
+                    word.positions.forEach(([r, c]) => {
+                        cells[r][c].classList.add('found');
+                    });
+                });
+                updateWordList();
+                document.getElementById('message').textContent = 'All words highlighted!';
+            }
+
+            // Сброс игры
+            function resetGame() {
+                foundWords = [];
+                for (let r = 0; r < 10; r++) {
+                    for (let c = 0; c < 10; c++) {
+                        cells[r][c].classList.remove('highlight-temp', 'found');
+                    }
+                }
+                updateWordList();
+                document.getElementById('message').textContent = 'Drag over letters to find words!';
+            }
+
+            // Привязка событий
+            gridDiv.addEventListener('mousedown', onMouseDown);
+            window.addEventListener('mousemove', onMouseMove);
+            window.addEventListener('mouseup', onMouseUp);
+
+            gridDiv.addEventListener('touchstart', onTouchStart, { passive: false });
+            gridDiv.addEventListener('touchmove', onTouchMove, { passive: false });
+            gridDiv.addEventListener('touchend', onTouchEnd, { passive: false });
+            gridDiv.addEventListener('touchcancel', onTouchEnd, { passive: false });
+
+            document.addEventListener('selectstart', (e) => e.preventDefault());
+
+            document.getElementById('showAllBtn').addEventListener('click', highlightAll);
+            document.getElementById('resetBtn').addEventListener('click', resetGame);
+
+            resetGame();
+        })();
+    </script>
+</body>
+</html>
